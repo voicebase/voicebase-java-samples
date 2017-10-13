@@ -16,7 +16,7 @@ package com.voicebase.sample.v3client.model;
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.voicebase.sample.v3client.model.ArrayList;
+import java.util.ArrayList;
 import com.voicebase.sample.v3client.model.VbVocabularyScript;
 import com.voicebase.sample.v3client.model.VbVocabularyTerm;
 import com.voicebase.sample.v3client.model.VbVocabularyType;

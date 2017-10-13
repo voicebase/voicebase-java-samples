@@ -16,7 +16,7 @@ package com.voicebase.sample.v3client.model;
 import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.voicebase.sample.v3client.model.ArrayList;
+import java.util.ArrayList;
 import com.voicebase.sample.v3client.model.VbVocabulary;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
