@@ -49,7 +49,11 @@ public class VoicebaseV3MinimalClientTest {
         final int SECOND_BETWEEN_POLLS = 10;
         final int MAXIMUM_POLLING_ITERATIONS = 100;
 
-        VbMedia response = client.postMedia(media);
+
+        VbMedia response = (media != null)
+                ? client.postMedia(media)
+                : client.postMedia(mediaUrl);
+
         final String mediaId = response.getMediaId();
 
         assert response.getStatus() == VbStatusEnum.ACCEPTED;
