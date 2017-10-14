@@ -1,4 +1,23 @@
-# client
+# What Is This?
+
+This is a sample that shows how to use VoiceBase V3 with the Apache HttpComponents HttpClient library.
+
+It uses a ful Jackson-ized data model generated from the VoiceBase V3 Swagger, but only implements the methods for:
+- /media POST
+- /media/{mediaId} GET
+
+It is not intended as a fully-features VoiceBase V3 client, but as a demonstration of how to integrate VoiceBase using
+the Apache HttpComponents HttpClient library.
+
+For details, see:
+- VoiceBaseV3MinimalClientImpl
+- VoiceBaseV3MinimalClientTest
+
+Please note:
+
+> To run the attached unit tests, create a file called `.voicebase-bearer-token`, containing your Bearer token.
+
+# Generated Swagger Client Documentation
 
 ## Requirements
 

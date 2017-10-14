@@ -8,7 +8,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.voicebase.sample.v3client.model.VbConfiguration;
 import com.voicebase.sample.v3client.model.VbMedia;
 import com.voicebase.sample.v3client.model.VbMetadata;
-import jersey.repackaged.com.google.common.base.Preconditions;
 
 import java.io.File;
 import java.io.IOException;
@@ -36,7 +35,8 @@ public class VoicebaseV3MinimalClientImpl implements VoiceBaseV3MinimalClient {
 
     @Override
     public VbMedia getMediaById(String mediaId) throws ApiException {
-        Preconditions.checkNotNull(mediaId);
+
+        checkThatArgumentIsNotNull(mediaId, "mediaId");
 
         checkThatBearerTokenIsNotNull();
         return getMediaById(mediaId, null);
@@ -56,23 +56,6 @@ public class VoicebaseV3MinimalClientImpl implements VoiceBaseV3MinimalClient {
                 httpGet.setHeader(AUTHORIZATION, this.authorizationHeader);
 
                 VbMedia response = httpClient.execute(httpGet, new VoiceBaseResponseHandler<>(VbMedia.class));
-
-                /*VbMedia media = httpClient.execute(httpGet, new ResponseHandler<VbMedia>() {
-                    @Override
-                    public VbMedia handleResponse(HttpResponse httpResponse) throws IOException {
-                        final StatusLine statusLine = httpResponse.getStatusLine();
-                        if (statusLine.getStatusCode() > 300) {
-                            throw new IOException(Integer.toString(statusLine.getStatusCode()));
-                        }
-                        final HttpEntity httpEntity = httpResponse.getEntity();
-                        if (httpEntity == null) {
-                            throw new IOException("Received an empty response");
-                        }
-                        final String responseJson = EntityUtils.toString(httpEntity);
-
-                        return objectMapper.readValue(responseJson, VbMedia.class);
-                    }
-                });*/
 
                 return response;
             }
@@ -124,18 +107,19 @@ public class VoicebaseV3MinimalClientImpl implements VoiceBaseV3MinimalClient {
 
     /**
      * This method provides a common POST /media, whether by Url or attachment.
-     * @param media
-     * @param mediaUrl
-     * @param configuration
-     * @param metadata
+     * @param media Media file attached to the request.
+     * @param mediaUrl URL where media file can be downloaded.
+     * @param configuration A JSON object with configuration options.
+     * @param metadata Metadata about the file being posted.
      * @return a VbMedia response entity
      * @throws ApiException
      */
     public VbMedia postMedia(File media, String mediaUrl, VbConfiguration configuration, VbMetadata metadata) throws ApiException {
-        Preconditions.checkArgument(
-                (media != null || mediaUrl != null) && ! (media != null && mediaUrl != null),
-                "Exactly one of media and mediaUrl must not be null"
-        );
+
+        if ((media == null && mediaUrl == null) || (media != null && mediaUrl != null)) {
+            throw new IllegalArgumentException("Exactly one of media and mediaUrl must not be null");
+        }
+
         checkThatBearerTokenIsNotNull();
 
         final String url = VOICEBASE_V3_MEDIA;
@@ -179,15 +163,24 @@ public class VoicebaseV3MinimalClientImpl implements VoiceBaseV3MinimalClient {
 
     @Override
     public void setBearerToken(String bearerToken) {
-        Preconditions.checkNotNull(bearerToken);
-        Preconditions.checkArgument(! bearerToken.isEmpty(), "Bearer token cannot be empty");
+        if (bearerToken == null || bearerToken.isEmpty()) {
+            throw new IllegalArgumentException("bearerToken cannot be null or empty");
+        }
 
         this.bearerToken = bearerToken;
         this.authorizationHeader = new StringBuilder(BEARER).append(SPACE).append(bearerToken).toString();
     }
 
+    protected <T> void checkThatArgumentIsNotNull(final T argument, final String argumentName) {
+        if (argument == null) {
+            throw new IllegalArgumentException(argumentName + " cannot be null");
+        }
+    }
+
     protected void checkThatBearerTokenIsNotNull() {
-        Preconditions.checkState(this.authorizationHeader != null, "Bearer token must be set");
+        if (this.authorizationHeader == null || this.bearerToken == null) {
+            throw new IllegalStateException("Bearer token must be set before use");
+        }
     }
 
     protected void initialize(final String bearerToken) {

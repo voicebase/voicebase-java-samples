@@ -180,7 +180,7 @@
       <version>${swagger-core-version}</version>
     </dependency>
 
-    <!-- HTTP client: jersey-client -->
+    <!-- HTTP client: Apache HttpComponents HttpClient -->
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>httpclient</artifactId>
@@ -195,24 +195,6 @@
       <groupId>org.apache.httpcomponents</groupId>
       <artifactId>fluent-hc</artifactId>
       <version>${httpcomponents-version}</version>
-    </dependency>
-
-
-    <!-- original generate HTTP client to be removed: jersey-client -->
-    <dependency>
-      <groupId>org.glassfish.jersey.core</groupId>
-      <artifactId>jersey-client</artifactId>
-      <version>${jersey-version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.media</groupId>
-      <artifactId>jersey-media-multipart</artifactId>
-      <version>${jersey-version}</version>
-    </dependency>
-    <dependency>
-      <groupId>org.glassfish.jersey.media</groupId>
-      <artifactId>jersey-media-json-jackson</artifactId>
-      <version>${jersey-version}</version>
     </dependency>
 
     <!-- JSON processing: jackson -->
@@ -261,7 +243,6 @@
   </dependencies>
   <properties>
     <swagger-core-version>1.5.12</swagger-core-version>
-    <jersey-version>2.22.2</jersey-version>
     <jackson-version>2.7.5</jackson-version>
     <maven-plugin-version>1.0.0</maven-plugin-version>
     <junit-version>4.12</junit-version>
