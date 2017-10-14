@@ -182,6 +182,24 @@
 
     <!-- HTTP client: jersey-client -->
     <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>${httpcomponents-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpmime</artifactId>
+      <version>${httpcomponents-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>fluent-hc</artifactId>
+      <version>${httpcomponents-version}</version>
+    </dependency>
+
+
+    <!-- original generate HTTP client to be removed: jersey-client -->
+    <dependency>
       <groupId>org.glassfish.jersey.core</groupId>
       <artifactId>jersey-client</artifactId>
       <version>${jersey-version}</version>
@@ -233,6 +251,13 @@
       <version>${junit-version}</version>
       <scope>test</scope>
     </dependency>
+
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${commons-io-version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
   <properties>
     <swagger-core-version>1.5.12</swagger-core-version>
@@ -240,5 +265,7 @@
     <jackson-version>2.7.5</jackson-version>
     <maven-plugin-version>1.0.0</maven-plugin-version>
     <junit-version>4.12</junit-version>
+    <httpcomponents-version>4.5.3</httpcomponents-version>
+    <commons-io-version>2.5</commons-io-version>
   </properties>
 </project>
