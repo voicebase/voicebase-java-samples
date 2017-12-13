@@ -22,6 +22,9 @@ public class BatchProcessingDriver {
             final String voicebaseBearerToken = cmd.getOptionValue(TOKEN);
             final String prefix = cmd.getOptionValue(PREFIX);
             final String postfix = cmd.getOptionValue(POSTFIX);
+            final String customVocabulary = cmd.getOptionValue(CUSTOM_VOCABULARY);
+            final String callbackUrl = cmd.getOptionValue(CALLBACK);
+            final boolean enablePciRedaction = cmd.hasOption(PCI_REDACTION);
 
             final CSVBatchParser csvBatchParser = new CSVBatchParser(
                     csvFile, mediaFileColumn, externalIdColumn, prefix, postfix
@@ -30,6 +33,9 @@ public class BatchProcessingDriver {
             final List<BatchProcessingItem> items = csvBatchParser.parse();
 
             final BatchProcessing batchProcessing = new BatchProcessing(items, voicebaseBearerToken)
+                    .withCustomVocabulary(customVocabulary)
+                    .withPciRedaction()
+                    .withCallback(callbackUrl)
                     .upload()
                     .poll()
                     .download();
@@ -63,6 +69,10 @@ public class BatchProcessingDriver {
     protected static final String POSTFIX = "postfix";
     protected static final String EXTERNAL_ID_COLUMN = "external-id-column";
     protected static final String TOKEN = "token";
+    protected static final String CUSTOM_VOCABULARY = "custom-vocabulary";
+    protected static final String PCI_REDACTION = "pci-redaction";
+    protected static final String CALLBACK = "callback";
+
 
     protected final static Options OPTIONS = new Options()
             .addRequiredOption("c", CSV_FILE, true, "CSV file path")
@@ -70,5 +80,8 @@ public class BatchProcessingDriver {
             .addRequiredOption("t", TOKEN, true, "VoiceBase Bearer Token")
             .addOption("e", EXTERNAL_ID_COLUMN, true, "external id column")
             .addOption("p", PREFIX, true, "media filename prefix")
-            .addOption("P", POSTFIX, true, "media filename postfix");
+            .addOption("P", POSTFIX, true, "media filename postfix")
+            .addOption("V", CUSTOM_VOCABULARY, true, "name of custom vocabulary")
+            .addOption("r", PCI_REDACTION, false, "enable PCI Redaction")
+            .addOption("C", CALLBACK, true, "Callback url");
 }
