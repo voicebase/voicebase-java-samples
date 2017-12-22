@@ -3,14 +3,30 @@ package com.voicebase.sample;
 import com.voicebase.sample.batch.BatchProcessing;
 import com.voicebase.sample.batch.BatchProcessingItem;
 import com.voicebase.sample.batch.CSVBatchParser;
+import com.voicebase.sample.config.ParallelExecutorConfig;
+import com.voicebase.sample.config.VoiceBaseClientConfig;
 import org.apache.commons.cli.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 
 import java.io.IOException;
 import java.util.List;
 
-public class BatchProcessingDriver {
-    public static void main(String [] args) {
-        log("Starting with args: ", String.join(" ", args));
+@SpringBootApplication
+@Configuration
+@Import({
+        VoiceBaseClientConfig.class, ParallelExecutorConfig.class
+})
+public class BatchProcessingDriver implements CommandLineRunner {
+
+    @Override
+    public void run(String ...args) {
+        logger.info("Starting with args: ", args);
 
         try {
             final CommandLineParser parser = new DefaultParser();
@@ -32,9 +48,11 @@ public class BatchProcessingDriver {
 
             final List<BatchProcessingItem> items = csvBatchParser.parse();
 
-            final BatchProcessing batchProcessing = new BatchProcessing(items, voicebaseBearerToken)
+            SpringApplication.run(BatchProcessing.class, args);
+
+            final BatchProcessing batchProcessing = new BatchProcessing(items)
                     .withCustomVocabulary(customVocabulary)
-                    .withPciRedaction()
+                    .withPciRedaction(enablePciRedaction)
                     .withCallback(callbackUrl)
                     .upload()
                     .poll()
@@ -55,6 +73,12 @@ public class BatchProcessingDriver {
             System.exit(1);
             return;
         }
+    }
+
+    public static void main(String [] args) throws Exception {
+        logger.info("Starting up...");
+        SpringApplication.run(BatchProcessingDriver.class, args);
+        logger.info("After start up...");
     }
 
 
@@ -84,4 +108,6 @@ public class BatchProcessingDriver {
             .addOption("V", CUSTOM_VOCABULARY, true, "name of custom vocabulary")
             .addOption("r", PCI_REDACTION, false, "enable PCI Redaction")
             .addOption("C", CALLBACK, true, "Callback url");
+
+    protected final static Logger logger = LoggerFactory.getLogger(BatchProcessingDriver.class);
 }

@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.voicebase.sample.v3client.helpers.ApiException;
+import com.voicebase.sample.v3client.helpers.RFC3339DateFormat;
 import com.voicebase.sample.v3client.model.VbConfiguration;
 import com.voicebase.sample.v3client.model.VbMedia;
 import com.voicebase.sample.v3client.model.VbMetadata;

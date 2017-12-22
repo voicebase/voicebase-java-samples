@@ -5,14 +5,17 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.voicebase.sample.v3client.ApiException;
-import com.voicebase.sample.v3client.RFC3339DateFormat;
+import com.voicebase.sample.parallelism.ParallelOperations;
+import com.voicebase.sample.v3client.helpers.ApiException;
+import com.voicebase.sample.v3client.helpers.RFC3339DateFormat;
 import com.voicebase.sample.v3client.VoiceBaseV3MinimalClient;
 import com.voicebase.sample.v3client.VoicebaseV3MinimalClientImpl;
 import com.voicebase.sample.v3client.model.*;
+import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.File;
 import java.util.*;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 
 /**
  * The BatchProcessing class takes a small batch of work through the basic steps of:
@@ -22,16 +25,14 @@ import java.util.*;
  */
 public class BatchProcessing {
 
-    public BatchProcessing(final List<BatchProcessingItem> items, final String voicebaseBearerToken) {
-        this(items, voicebaseBearerToken, DEFAULT_MAX_ITERATIONS, DEFAULT_SLEEP_BETWEEN_ITERATIONS_MS);
+    public BatchProcessing(final List<BatchProcessingItem> items) {
+        this(items, DEFAULT_MAX_ITERATIONS, DEFAULT_SLEEP_BETWEEN_ITERATIONS_MS);
     }
 
     public BatchProcessing(final List<BatchProcessingItem> items,
-                           final String voicebaseBearerToken,
                            final int maxIterations,
                            final long sleepBetweenIterationsMs) {
         this.items = items;
-        this.voicebaseBearerToken = voicebaseBearerToken;
         this.maxIterations = maxIterations;
         this.sleepBetweenIterationsMs = sleepBetweenIterationsMs;
 
@@ -39,8 +40,6 @@ public class BatchProcessing {
         this.itemsToDownload = new HashSet<>(items.size());
         this.itemsCompleted = new HashSet<>(items.size());
         this.itemsFailed = new HashSet<>(items.size());
-
-        this.voicebase = new VoicebaseV3MinimalClientImpl(voicebaseBearerToken);
 
         this.configuration = ConfigurationUtil.createVbDefaultConfiguration();
 
@@ -59,8 +58,10 @@ public class BatchProcessing {
         return this;
     }
 
-    public BatchProcessing withPciRedaction() {
-        ConfigurationUtil.addPciRedaction(configuration);
+    public BatchProcessing withPciRedaction(final boolean enablePciRedaction) {
+        if (enablePciRedaction) {
+            ConfigurationUtil.addPciRedaction(configuration);
+        }
 
         return this;
     }
@@ -70,32 +71,33 @@ public class BatchProcessing {
             throw new IllegalStateException();
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
-        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        objectMapper.enable(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
-        objectMapper.enable(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
-        objectMapper.setDateFormat(new RFC3339DateFormat());
-        objectMapper.registerModule(new JavaTimeModule());
-
         try {
             log("upload() using configuration: ", objectMapper.writeValueAsString(configuration));
         } catch (Throwable t) { }
 
-
-
-
         try {
+            final List<Future<BatchProcessingState>> uploadFutures = new ArrayList<>(items.size());
+
+            // Start all uploads in parallel (subject to the uploadItem's executor pool size
+
             for (BatchProcessingItem item : items) {
                 log("upload() uploading filename: ", item.getFilename());
-                BatchProcessingState state = uploadItem(item);
-                log("upload() uploaded mediaId for filename: ", state.getMediaId(), item.getFilename());
+                Future<BatchProcessingState> stateFuture = parallelOperations.uploadItem(item, configuration);
+                uploadFutures.add(stateFuture);
+            }
+
+            // Await all uploads to complete before proceeding
+
+            for (Future<BatchProcessingState> future : uploadFutures) {
+                BatchProcessingState state = future.get();
+                log("upload() uploaded mediaId for filename: ", state.getMediaId(), state.getItem().getFilename());
                 itemsToPoll.add(state);
             }
-        } catch (ApiException ae) {
+
+        } catch (ApiException | InterruptedException | ExecutionException e) {
+            log( "Failing to due Exception:", e.toString());
             state = BatchState.FAILED;
-            throw new RuntimeException(ae);
+            throw new RuntimeException(e);
         }
 
         state = BatchState.UPLOADED;
@@ -165,23 +167,7 @@ public class BatchProcessing {
         return this;
     }
 
-    protected BatchProcessingState uploadItem(BatchProcessingItem item) throws ApiException {
-        final File mediaFile = new File(item.getFilename());
 
-        final VbMetadata metadata = new VbMetadata();
-        final String externalId = item.getExternalId();
-        final Map<String, String> metadataAttributes = item.getMetadataAttributes();
-
-        if (externalId != null) {
-            metadata.externalId(externalId);
-        }
-
-        metadata.extended(Collections.unmodifiableMap(metadataAttributes));
-
-        final VbMedia media = voicebase.postMedia(mediaFile, configuration, metadata);
-        log("uploadItem() media = ", media.toString());
-        return new BatchProcessingStateImpl(item, media.getMediaId(), media.getStatus());
-    }
 
     protected BatchProcessingState pollItem(BatchProcessingState initialState) throws ApiException {
         final String mediaId = initialState.getMediaId();
@@ -211,7 +197,18 @@ public class BatchProcessing {
         System.out.println(String.join(" ", args));
     }
 
+    protected static final ObjectMapper createObjectMapper() {
+        final ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
+        objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        objectMapper.enable(SerializationFeature.WRITE_ENUMS_USING_TO_STRING);
+        objectMapper.enable(DeserializationFeature.READ_ENUMS_USING_TO_STRING);
+        objectMapper.setDateFormat(new RFC3339DateFormat());
+        objectMapper.registerModule(new JavaTimeModule());
 
+        return objectMapper;
+    }
 
     protected enum BatchState {
       INITIALIZED, UPLOADED, POLLED, DOWNLOADED, FAILED
@@ -219,7 +216,11 @@ public class BatchProcessing {
 
     protected BatchState state;
 
-    protected final VoiceBaseV3MinimalClient voicebase;
+    @Autowired
+    protected VoiceBaseV3MinimalClient voicebase;
+
+    @Autowired
+    protected ParallelOperations parallelOperations;
 
     protected final List<BatchProcessingItem> items;
 
@@ -231,8 +232,6 @@ public class BatchProcessing {
 
     protected final Set<BatchProcessingState> itemsFailed;
 
-    protected final String voicebaseBearerToken;
-
     protected final VbConfiguration configuration;
 
     protected final int maxIterations;
@@ -242,6 +241,8 @@ public class BatchProcessing {
     protected static int DEFAULT_MAX_ITERATIONS = 1000;
 
     protected static long DEFAULT_SLEEP_BETWEEN_ITERATIONS_MS = 5000;
+
+    protected static final ObjectMapper objectMapper = createObjectMapper();
 
     protected static class ConfigurationUtil {
 
@@ -312,4 +313,5 @@ public class BatchProcessing {
         }
 
     }
+
 }

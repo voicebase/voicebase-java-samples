@@ -167,6 +167,22 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+        <configuration>
+          <fork>true</fork>
+          <mainClass>com.voicebase.sample.BatchProcessingDriver</mainClass>
+        </configuration>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>repackage</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
@@ -254,6 +270,45 @@
       <version>2.2</version>
     </dependency>
 
+    <!-- https://mvnrepository.com/artifact/org.springframework/spring-core -->
+    <!--<dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-core</artifactId>
+      <version>${spring-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context</artifactId>
+      <version>${spring-version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework</groupId>
+      <artifactId>spring-context-support</artifactId>
+      <version>${spring-version}</version>
+    </dependency>-->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter</artifactId>
+      <version>1.5.9.RELEASE</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-api</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-log4j12</artifactId>
+      <version>1.7.25</version>
+    </dependency>
+    <dependency>
+      <groupId>log4j</groupId>
+      <artifactId>log4j</artifactId>
+      <version>1.2.17</version>
+    </dependency>
+
+
+
     <!-- test dependencies -->
     <dependency>
       <groupId>junit</groupId>
@@ -279,6 +334,7 @@
       <version>${commons-cli-version}</version>
     </dependency>
 
+
   </dependencies>
   <properties>
     <swagger-core-version>1.5.12</swagger-core-version>
@@ -289,5 +345,6 @@
     <commons-io-version>2.5</commons-io-version>
     <commons-csv-version>1.4</commons-csv-version>
     <commons-cli-version>1.4</commons-cli-version>
+    <spring-version>4.3.13.RELEASE</spring-version>
   </properties>
 </project>

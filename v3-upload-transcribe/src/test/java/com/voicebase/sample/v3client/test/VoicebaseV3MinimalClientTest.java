@@ -1,6 +1,6 @@
 package com.voicebase.sample.v3client.test;
 
-import com.voicebase.sample.v3client.ApiException;
+import com.voicebase.sample.v3client.helpers.ApiException;
 import com.voicebase.sample.v3client.VoiceBaseV3MinimalClient;
 import com.voicebase.sample.v3client.VoicebaseV3MinimalClientImpl;
 

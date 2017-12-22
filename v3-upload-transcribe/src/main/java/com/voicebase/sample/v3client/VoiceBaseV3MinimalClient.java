@@ -1,6 +1,8 @@
 package com.voicebase.sample.v3client;
 
 import java.util.List;
+
+import com.voicebase.sample.v3client.helpers.ApiException;
 import com.voicebase.sample.v3client.model.VbMedia;
 import com.voicebase.sample.v3client.model.VbConfiguration;
 import com.voicebase.sample.v3client.model.VbMetadata;
