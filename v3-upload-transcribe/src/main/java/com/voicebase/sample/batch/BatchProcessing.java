@@ -5,13 +5,17 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.voicebase.sample.BatchProcessingDriver;
 import com.voicebase.sample.parallelism.ParallelOperations;
 import com.voicebase.sample.v3client.helpers.ApiException;
 import com.voicebase.sample.v3client.helpers.RFC3339DateFormat;
 import com.voicebase.sample.v3client.VoiceBaseV3MinimalClient;
 import com.voicebase.sample.v3client.VoicebaseV3MinimalClientImpl;
 import com.voicebase.sample.v3client.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.util.*;
 import java.util.concurrent.ExecutionException;
@@ -25,6 +29,10 @@ import java.util.concurrent.Future;
  */
 public class BatchProcessing {
 
+    public BatchProcessing() {
+        this(null);
+    }
+
     public BatchProcessing(final List<BatchProcessingItem> items) {
         this(items, DEFAULT_MAX_ITERATIONS, DEFAULT_SLEEP_BETWEEN_ITERATIONS_MS);
     }
@@ -36,14 +44,29 @@ public class BatchProcessing {
         this.maxIterations = maxIterations;
         this.sleepBetweenIterationsMs = sleepBetweenIterationsMs;
 
-        this.itemsToPoll = new HashSet<>(items.size());
-        this.itemsToDownload = new HashSet<>(items.size());
-        this.itemsCompleted = new HashSet<>(items.size());
-        this.itemsFailed = new HashSet<>(items.size());
+        final int itemCount = (items != null) ? items.size() : 0;
+
+        this.itemsToPoll = new HashSet<>(itemCount);
+        this.itemsToDownload = new HashSet<>(itemCount);
+        this.itemsCompleted = new HashSet<>(itemCount);
+        this.itemsFailed = new HashSet<>(itemCount);
 
         this.configuration = ConfigurationUtil.createVbDefaultConfiguration();
 
         this.state = BatchState.INITIALIZED;
+    }
+
+    public BatchProcessing withItems(final List<BatchProcessingItem> items) {
+        this.items = items;
+
+        final int itemCount = (items != null) ? items.size() : 0;
+
+        this.itemsToPoll = new HashSet<>(itemCount);
+        this.itemsToDownload = new HashSet<>(itemCount);
+        this.itemsCompleted = new HashSet<>(itemCount);
+        this.itemsFailed = new HashSet<>(itemCount);
+
+        return this;
     }
 
     public BatchProcessing withCustomVocabulary(final String customVocabularyName) {
@@ -72,7 +95,8 @@ public class BatchProcessing {
         }
 
         try {
-            log("upload() using configuration: ", objectMapper.writeValueAsString(configuration));
+            logger.info("upload() using configuration: {}", objectMapper.writeValueAsString(configuration));
+            logger.info("upload() items: {}", items);
         } catch (Throwable t) { }
 
         try {
@@ -81,7 +105,7 @@ public class BatchProcessing {
             // Start all uploads in parallel (subject to the uploadItem's executor pool size
 
             for (BatchProcessingItem item : items) {
-                log("upload() uploading filename: ", item.getFilename());
+                logger.info("upload() uploading filename: {}", item.getFilename());
                 Future<BatchProcessingState> stateFuture = parallelOperations.uploadItem(item, configuration);
                 uploadFutures.add(stateFuture);
             }
@@ -90,12 +114,12 @@ public class BatchProcessing {
 
             for (Future<BatchProcessingState> future : uploadFutures) {
                 BatchProcessingState state = future.get();
-                log("upload() uploaded mediaId for filename: ", state.getMediaId(), state.getItem().getFilename());
+                logger.info("upload() uploaded mediaId for filename: {}, {}", state.getMediaId(), state.getItem().getFilename());
                 itemsToPoll.add(state);
             }
 
         } catch (ApiException | InterruptedException | ExecutionException e) {
-            log( "Failing to due Exception:", e.toString());
+            logger.error( "Failing to due Exception: {}", e.toString());
             state = BatchState.FAILED;
             throw new RuntimeException(e);
         }
@@ -109,10 +133,13 @@ public class BatchProcessing {
             throw new IllegalStateException();
         }
 
+        logger.info("poll() : Starting polling phase");
+
         // Need a secondary collection since we cannot remove from the uploaded map while iterating through it
         final Map<BatchProcessingState, BatchProcessingState> stateChanges = new HashMap<>();
 
         for (int iteration = 0; (! itemsToPoll.isEmpty()) && (iteration < maxIterations); iteration++) {
+            logger.info("poll(): starting poll iteration {}: ", iteration);
 
             for (BatchProcessingState state : itemsToPoll) {
                 try {
@@ -122,7 +149,7 @@ public class BatchProcessing {
                         stateChanges.put(state, newState);
                     }
                 } catch (ApiException ae) {
-                    log("poll() caught an exception for mediaId (continuing)", state.getMediaId());
+                    logger.warn("poll() caught an exception for mediaId {} (continuing): {}", state.getMediaId(), ae);
                 }
             }
 
@@ -146,6 +173,12 @@ public class BatchProcessing {
             }
 
             stateChanges.clear();
+
+            try {
+                Thread.sleep(sleepBetweenIterationsMs);
+            } catch (InterruptedException e) {
+                logger.warn("poll(): Caught thread interrupted exception while sleeping: {}", e);
+            }
         }
 
         // If the itemsToPoll set is not empty, that means that we exceeded attempts on at least one - fail the batch
@@ -171,10 +204,14 @@ public class BatchProcessing {
 
     protected BatchProcessingState pollItem(BatchProcessingState initialState) throws ApiException {
         final String mediaId = initialState.getMediaId();
+
+        logger.info("pollItem(): polling mediaId {}...", mediaId);
         final VbStatusEnum initialStatus = initialState.getMediaStatus();
 
         final VbMedia media = voicebase.getMediaById(mediaId);
         final VbStatusEnum currentStatus = media.getStatus();
+
+        logger.info("pollItem(): polling mediaId {}, initialStatus = {}, currentStatus = {}", mediaId, initialStatus, currentStatus);
 
         // Generate a new state only if the media status has changed
         return (currentStatus != initialStatus) ? initialState.withStatus(currentStatus) : initialState;
@@ -190,11 +227,6 @@ public class BatchProcessing {
 
 
         return null;
-    }
-
-    protected static void log(String ...args) {
-        // TODO: replace with a real logger, such as SLF4J
-        System.out.println(String.join(" ", args));
     }
 
     protected static final ObjectMapper createObjectMapper() {
@@ -217,22 +249,23 @@ public class BatchProcessing {
     protected BatchState state;
 
     @Autowired
+    @Qualifier("voicebase")
     protected VoiceBaseV3MinimalClient voicebase;
 
     @Autowired
     protected ParallelOperations parallelOperations;
 
-    protected final List<BatchProcessingItem> items;
+    protected List<BatchProcessingItem> items;
 
-    protected final Set<BatchProcessingState> itemsToPoll;
+    protected Set<BatchProcessingState> itemsToPoll;
 
-    protected final Set<BatchProcessingState> itemsToDownload;
+    protected Set<BatchProcessingState> itemsToDownload;
 
-    protected final Set<BatchProcessingState> itemsCompleted;
+    protected Set<BatchProcessingState> itemsCompleted;
 
-    protected final Set<BatchProcessingState> itemsFailed;
+    protected Set<BatchProcessingState> itemsFailed;
 
-    protected final VbConfiguration configuration;
+    protected VbConfiguration configuration;
 
     protected final int maxIterations;
 
@@ -313,5 +346,7 @@ public class BatchProcessing {
         }
 
     }
+
+    protected final static Logger logger = LoggerFactory.getLogger(BatchProcessingDriver.class);
 
 }

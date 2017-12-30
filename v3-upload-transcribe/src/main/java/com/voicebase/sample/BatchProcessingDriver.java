@@ -3,30 +3,65 @@ package com.voicebase.sample;
 import com.voicebase.sample.batch.BatchProcessing;
 import com.voicebase.sample.batch.BatchProcessingItem;
 import com.voicebase.sample.batch.CSVBatchParser;
-import com.voicebase.sample.config.ParallelExecutorConfig;
-import com.voicebase.sample.config.VoiceBaseClientConfig;
+import com.voicebase.sample.parallelism.ParallelOperations;
+import com.voicebase.sample.v3client.VoiceBaseV3MinimalClient;
+import com.voicebase.sample.v3client.VoicebaseV3MinimalClientImpl;
 import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.ExitCodeGenerator;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
+import org.springframework.scheduling.concurrent.ConcurrentTaskExecutor;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 @SpringBootApplication
 @Configuration
-@Import({
-        VoiceBaseClientConfig.class, ParallelExecutorConfig.class
-})
-public class BatchProcessingDriver implements CommandLineRunner {
+public class BatchProcessingDriver implements CommandLineRunner, ApplicationContextAware {
+
+    @Bean(name = "uploadTaskExecutor")
+    public Executor uploadTaskExecutor() {
+        return new ConcurrentTaskExecutor(
+                Executors.newFixedThreadPool(4)
+        );
+    }
+
+    @Bean(name = "pollTaskExecutor")
+    public Executor pollTaskExecutor() {
+        return new ConcurrentTaskExecutor(
+                Executors.newFixedThreadPool(4)
+        );
+    }
+
+    @Bean(name = "parallelOperations")
+    public ParallelOperations parallelOperations() {
+        return new ParallelOperations();
+    }
+
+    @Bean(name = "voicebase")
+    public VoiceBaseV3MinimalClient voicebase(@Value("${token}") final String voicebaseBearerToken) {
+        logger.info("Initializing client with token={}", voicebaseBearerToken);
+        return new VoicebaseV3MinimalClientImpl(voicebaseBearerToken);
+    }
+
+    @Bean(name = "batchProcessing")
+    public BatchProcessing batchProcessing() {
+        return new BatchProcessing();
+    }
 
     @Override
     public void run(String ...args) {
-        logger.info("Starting with args: ", args);
 
         try {
             final CommandLineParser parser = new DefaultParser();
@@ -48,15 +83,19 @@ public class BatchProcessingDriver implements CommandLineRunner {
 
             final List<BatchProcessingItem> items = csvBatchParser.parse();
 
-            SpringApplication.run(BatchProcessing.class, args);
-
-            final BatchProcessing batchProcessing = new BatchProcessing(items)
+            batchProcessing()
+                    .withItems(items)
                     .withCustomVocabulary(customVocabulary)
                     .withPciRedaction(enablePciRedaction)
                     .withCallback(callbackUrl)
                     .upload()
                     .poll()
                     .download();
+
+            logger.info("Batch processing flow completed. Exiting Spring application (exit code 0)...");
+
+            SpringApplication.exit(applicationContext, (ExitCodeGenerator) () -> 0);
+
 
         } catch (IOException ioe) {
 
@@ -75,12 +114,22 @@ public class BatchProcessingDriver implements CommandLineRunner {
         }
     }
 
-    public static void main(String [] args) throws Exception {
-        logger.info("Starting up...");
-        SpringApplication.run(BatchProcessingDriver.class, args);
-        logger.info("After start up...");
+    public void setApplicationContext(ApplicationContext context) throws BeansException {
+        applicationContext = context;
     }
 
+    public ApplicationContext getApplicationContext() {
+        return applicationContext;
+    }
+
+    protected ApplicationContext applicationContext;
+
+    public static void main(String [] args) throws Exception {
+        logger.info("Starting up... {}", String.join(", ", args));
+        SpringApplication.run(BatchProcessingDriver.class, args);
+        logger.info("Exited Spring application... exiting main()");
+        System.exit(0);
+    }
 
 
     protected static void log(String ...args) {

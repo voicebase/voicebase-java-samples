@@ -11,6 +11,7 @@ import com.voicebase.sample.v3client.model.VbMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.scheduling.annotation.AsyncResult;
 
@@ -21,7 +22,7 @@ import java.util.concurrent.Future;
 
 public class ParallelOperations {
 
-    @Async("uploadNameExecutor")
+    @Async("uploadTaskExecutor")
     public Future<BatchProcessingState> uploadItem(
             final BatchProcessingItem item,
             VbConfiguration configuration) throws ApiException {
@@ -38,8 +39,10 @@ public class ParallelOperations {
 
         metadata.extended(Collections.unmodifiableMap(metadataAttributes));
 
+        logger.info("uploadItem() uploading filename = '{}', externalId = '{}'", item.getFilename(), externalId);
+
         final VbMedia media = voicebase.postMedia(mediaFile, configuration, metadata);
-        logger.info("uploadItem() media = ", media.toString());
+        logger.info("uploadItem() media = {}", media.toString());
 
         return new AsyncResult<>(
                 new BatchProcessingStateImpl(item, media.getMediaId(), media.getStatus())
@@ -47,6 +50,7 @@ public class ParallelOperations {
     }
 
     @Autowired
+    @Qualifier("voicebase")
     VoiceBaseV3MinimalClient voicebase;
 
     final static Logger logger = LoggerFactory.getLogger(ParallelOperations.class);
