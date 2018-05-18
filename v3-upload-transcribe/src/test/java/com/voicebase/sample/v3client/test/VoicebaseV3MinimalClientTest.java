@@ -1,6 +1,6 @@
 package com.voicebase.sample.v3client.test;
 
-import com.voicebase.sample.v3client.ApiException;
+import com.voicebase.sample.v3client.helpers.ApiException;
 import com.voicebase.sample.v3client.VoiceBaseV3MinimalClient;
 import com.voicebase.sample.v3client.VoicebaseV3MinimalClientImpl;
 
@@ -30,6 +30,7 @@ public class VoicebaseV3MinimalClientTest {
     }
 
     @Test
+    @Ignore("Re-enable to test upload by url")
     public void uploadByUrlPollDownload() throws ApiException, InterruptedException {
         final String mediaUrl = "https://s3.amazonaws.com/voicebase-developer-test-content-dev/"
                 + "voicebase-synthetic-pci-test-call.mp3";

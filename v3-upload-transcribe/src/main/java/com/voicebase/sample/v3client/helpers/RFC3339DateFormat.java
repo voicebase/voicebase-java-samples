@@ -10,7 +10,7 @@
  * Do not edit the class manually.
  */
 
-package com.voicebase.sample.v3client;
+package com.voicebase.sample.v3client.helpers;
 
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat;
 import com.fasterxml.jackson.databind.util.ISO8601Utils;

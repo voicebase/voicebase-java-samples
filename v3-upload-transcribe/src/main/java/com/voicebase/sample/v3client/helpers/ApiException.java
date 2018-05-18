@@ -11,7 +11,7 @@
  */
 
 
-package com.voicebase.sample.v3client;
+package com.voicebase.sample.v3client.helpers;
 
 import java.util.Map;
 import java.util.List;
